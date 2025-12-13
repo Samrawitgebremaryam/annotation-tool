@@ -36,6 +36,12 @@ export default function Mine() {
   const [jobId, setJobId] = useState(searchParams.get("job_id") || "");
   const [minPatternSize, setMinPatternSize] = useState("3");
   const [maxPatternSize, setMaxPatternSize] = useState("5");
+  const [minNeighborhoodSize, setMinNeighborhoodSize] = useState("3");
+  const [maxNeighborhoodSize, setMaxNeighborhoodSize] = useState("5");
+  const [nNeighborhoods, setNNeighborhoods] = useState("500");
+  const [nTrials, setNTrials] = useState("100");
+  const [searchStrategy, setSearchStrategy] = useState("greedy");
+  const [sampleMethod, setSampleMethod] = useState("tree");
   const [outputFormat, setOutputFormat] = useState("representative");
 
   const [isMining, setIsMining] = useState(false);
@@ -60,6 +66,12 @@ export default function Mine() {
           job_id: jobId,
           min_pattern_size: parseInt(minPatternSize),
           max_pattern_size: parseInt(maxPatternSize),
+          min_neighborhood_size: parseInt(minNeighborhoodSize),
+          max_neighborhood_size: parseInt(maxNeighborhoodSize),
+          n_neighborhoods: parseInt(nNeighborhoods),
+          n_trials: parseInt(nTrials),
+          search_strategy: searchStrategy,
+          sample_method: sampleMethod,
           graph_output_format: outputFormat,
         },
       });
@@ -69,9 +81,6 @@ export default function Mine() {
       // If response.data.download_url is missing, fallback to standard pattern
       const downloadLink = response.data.download_url ||
         `${integrationAPI.defaults.baseURL}/api/download-result?job_id=${jobId}`;
-
-      // If output format is instance, we might want to check if the backend zipped it
-      // For now, simple link logic.
 
       setMiningResult({
         downloadUrl: downloadLink,
@@ -93,8 +102,8 @@ export default function Mine() {
   return (
     <div className="container mx-auto py-8 max-w-4xl">
       <div className="flex items-center gap-4 mb-8">
-        <div className="p-3 rounded-full bg-primary/10 text-primary">
-          <Pickaxe size={32} />
+        <div className="p-3">
+          <Pickaxe size={32} className="text-primary" />
         </div>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Neural Subgraph Miner</h1>
@@ -128,9 +137,10 @@ export default function Mine() {
 
             <Accordion type="single" collapsible defaultValue="advanced">
               <AccordionItem value="advanced">
-                <AccordionTrigger>Advanced Parameters</AccordionTrigger>
+                <AccordionTrigger>Configuration Parameters</AccordionTrigger>
                 <AccordionContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+
                     <div className="space-y-2">
                       <Label htmlFor="min-size">Min Pattern Size</Label>
                       <Input
@@ -151,7 +161,81 @@ export default function Mine() {
                         onChange={(e) => setMaxPatternSize(e.target.value)}
                       />
                     </div>
+
                     <div className="space-y-2">
+                      <Label htmlFor="min-neighborhood">Min Neighborhood Size</Label>
+                      <Input
+                        id="min-neighborhood"
+                        type="number"
+                        min={1}
+                        value={minNeighborhoodSize}
+                        onChange={(e) => setMinNeighborhoodSize(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="max-neighborhood">Max Neighborhood Size</Label>
+                      <Input
+                        id="max-neighborhood"
+                        type="number"
+                        min={parseInt(minNeighborhoodSize)}
+                        value={maxNeighborhoodSize}
+                        onChange={(e) => setMaxNeighborhoodSize(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="n-neighborhoods">Num Neighborhoods</Label>
+                      <Input
+                        id="n-neighborhoods"
+                        type="number"
+                        min={1}
+                        value={nNeighborhoods}
+                        onChange={(e) => setNNeighborhoods(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="n-trials">Num Trials</Label>
+                      <Input
+                        id="n-trials"
+                        type="number"
+                        min={1}
+                        value={nTrials}
+                        onChange={(e) => setNTrials(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="strategy">Search Strategy</Label>
+                      <Select
+                        value={searchStrategy}
+                        onValueChange={setSearchStrategy}
+                      >
+                        <SelectTrigger id="strategy">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="greedy">Greedy</SelectItem>
+                          <SelectItem value="mcmc">MCMC</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="method">Sampling Method</Label>
+                      <Select
+                        value={sampleMethod}
+                        onValueChange={setSampleMethod}
+                      >
+                        <SelectTrigger id="method">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="tree">Tree</SelectItem>
+                          <SelectItem value="random">Random</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2 md:col-span-2">
                       <Label htmlFor="format">Output Format</Label>
                       <Select
                         value={outputFormat}

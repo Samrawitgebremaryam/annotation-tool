@@ -133,33 +133,7 @@ export default function () {
         </div>
       </div>
 
-      {jobId && writer === "networkx" && (
-        <Card className="mb-8 border-green-500 bg-green-500/10">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-green-700 flex items-center gap-2">
-              Success: NetworkX Graph Generated!
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Job ID:</p>
-                <div className="flex items-center gap-2">
-                  <code className="bg-background/50 px-2 py-1 rounded border">{jobId}</code>
-                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={copyJobId}>
-                    {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  </Button>
-                </div>
-              </div>
-              <Link to={`/mine?job_id=${jobId}`}>
-                <Button className="bg-green-600 hover:bg-green-700 text-white">
-                  Proceed to Mining <Pickaxe className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
 
       <div className="grid grid-cols-3 gap-6 mb-6">
         <div className="border border-dashed rounded-lg p-4">
