@@ -55,6 +55,11 @@ export default function Mine() {
     patternsCount?: number;
   } | null>(null);
 
+  // New Progress State
+  const [miningProgress, setMiningProgress] = useState(0);
+  const [miningStatus, setMiningStatus] = useState("Initializing...");
+  const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
+
   // History State
   const [history, setHistory] = useState<any[]>([]);
 
@@ -164,8 +169,45 @@ export default function Mine() {
       });
     } finally {
       setIsMining(false);
+      // Stop polling
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        setPollInterval(null);
+      }
     }
   };
+
+  // Poll for progress updates
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    if (isMining && jobId) {
+      // Reset progress
+      setMiningProgress(0);
+      setMiningStatus("Starting miner...");
+
+      intervalId = setInterval(async () => {
+        try {
+          // Note: accessing Integration Service via integrationAPI (Loader URL)
+          const res = await integrationAPI.get(`/api/mining-status/${jobId}`);
+          const data = res.data;
+
+          if (data) {
+            setMiningProgress(data.progress || 0);
+            if (data.message) setMiningStatus(data.message);
+          }
+        } catch (e) {
+          console.warn("Failed to poll progress", e);
+        }
+      }, 1000);
+
+      setPollInterval(intervalId);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isMining, jobId]);
 
   return (
     <div className="container mx-auto py-8 max-w-4xl">
@@ -355,23 +397,43 @@ export default function Mine() {
               </AccordionItem>
             </Accordion>
 
-            <Button
-              className="w-full md:w-auto md:min-w-[200px]"
-              size="lg"
-              disabled={isMining || !jobId}
-              onClick={startMining}
-            >
-              {isMining ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Mining Patterns...
-                </>
-              ) : (
-                <>
-                  <Pickaxe className="mr-2 h-4 w-4" /> Start Mining
-                </>
-              )}
-            </Button>
+            {/* Show Button OR Progress Card */}
+            {!isMining ? (
+              <Button
+                className="w-full md:w-auto md:min-w-[200px]"
+                size="lg"
+                disabled={!jobId}
+                onClick={startMining}
+              >
+                <Pickaxe className="mr-2 h-4 w-4" /> Start Mining
+              </Button>
+            ) : (
+              <Card className="border-green-800 bg-card shadow-lg animate-in fade-in zoom-in-95 duration-300">
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin text-green-500" />
+                        <h3 className="font-semibold text-foreground">Mining In Progress...</h3>
+                      </div>
+                      <span className="text-sm font-bold text-green-500">{miningProgress}%</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="w-full bg-secondary h-3 rounded-full overflow-hidden border border-border">
+                        <div 
+                          className="bg-green-600 h-full transition-all duration-500 ease-in-out shadow-[0_0_10px_rgba(22,163,74,0.5)]" 
+                          style={{ width: `${miningProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground font-medium text-right font-mono tracking-tight">
+                        {miningStatus}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </CardContent>
         </Card>
 
