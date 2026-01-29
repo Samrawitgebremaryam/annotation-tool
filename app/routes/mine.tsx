@@ -55,10 +55,38 @@ export default function Mine() {
     patternsCount?: number;
   } | null>(null);
 
-  // New Progress State
+  // Progress state main bar + phase breakdown (sampling/embedding, trials, saving)
   const [miningProgress, setMiningProgress] = useState(0);
   const [miningStatus, setMiningStatus] = useState("Initializing...");
+  const [phaseProgress, setPhaseProgress] = useState<{
+    embedding: number;
+    search: number;
+    saving: number;
+  }>({ embedding: 0, search: 0, saving: 0 });
   const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
+
+  /** Apply progress payload from WebSocket or polling  */
+  const applyProgress = (data: {
+    progress?: number;
+    message?: string;
+    embedding_progress?: number;
+    search_progress?: number;
+    saving_progress?: number;
+  }) => {
+    if (data.progress !== undefined) setMiningProgress(data.progress);
+    if (data.message != null) setMiningStatus(data.message);
+    if (
+      data.embedding_progress !== undefined ||
+      data.search_progress !== undefined ||
+      data.saving_progress !== undefined
+    ) {
+      setPhaseProgress((prev) => ({
+        embedding: data.embedding_progress ?? prev.embedding,
+        search: data.search_progress ?? prev.search,
+        saving: data.saving_progress ?? prev.saving,
+      }));
+    }
+  };
 
   // History State
   const [history, setHistory] = useState<any[]>([]);
@@ -186,9 +214,10 @@ export default function Mine() {
     let fallbackInterval: NodeJS.Timeout | null = null;
 
     if (isMining && jobId) {
-      // Reset progress
+      // Reset progress and phase breakdown
       setMiningProgress(0);
       setMiningStatus("Connecting to miner...");
+      setPhaseProgress({ embedding: 0, search: 0, saving: 0 });
 
       try {
         // Construct WebSocket URL from integrationAPI baseURL
@@ -218,12 +247,7 @@ export default function Mine() {
         socket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            if (data.progress !== undefined) {
-              setMiningProgress(data.progress);
-            }
-            if (data.message) {
-              setMiningStatus(data.message);
-            }
+            applyProgress(data);
           } catch (err) {
             console.error("[WebSocket] Failed to parse message:", err);
           }
@@ -254,10 +278,7 @@ export default function Mine() {
       fallbackInterval = setInterval(async () => {
         try {
           const res = await integrationAPI.get(`/api/mining-status/${jobId}`);
-          if (res.data) {
-            setMiningProgress(res.data.progress || 0);
-            if (res.data.message) setMiningStatus(res.data.message);
-          }
+          if (res.data) applyProgress(res.data);
         } catch (e) {
           console.warn("Polling failed", e);
         }
@@ -505,6 +526,50 @@ export default function Mine() {
                       <p className="text-xs text-muted-foreground font-medium text-right font-mono tracking-tight">
                         {miningStatus}
                       </p>
+                      {/*  sampling/embedding, trials, saving */}
+                      <div className="pt-2 border-t border-border/60 space-y-1.5">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                          Phase breakdown
+                        </p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-0.5">
+                            <div className="flex justify-between text-[10px] text-muted-foreground">
+                              <span>Sampling</span>
+                              <span>{phaseProgress.embedding}%</span>
+                            </div>
+                            <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden">
+                              <div
+                                className="bg-green-500/80 h-full transition-all duration-300"
+                                style={{ width: `${phaseProgress.embedding}%` }}
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-0.5">
+                            <div className="flex justify-between text-[10px] text-muted-foreground">
+                              <span>Trials</span>
+                              <span>{phaseProgress.search}%</span>
+                            </div>
+                            <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden">
+                              <div
+                                className="bg-green-600/90 h-full transition-all duration-300"
+                                style={{ width: `${phaseProgress.search}%` }}
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-0.5">
+                            <div className="flex justify-between text-[10px] text-muted-foreground">
+                              <span>Saving</span>
+                              <span>{phaseProgress.saving}%</span>
+                            </div>
+                            <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden">
+                              <div
+                                className="bg-green-700/90 h-full transition-all duration-300"
+                                style={{ width: `${phaseProgress.saving}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
