@@ -48,6 +48,7 @@ export default function Mine() {
   const [sampleMethod, setSampleMethod] = useState("tree");
   const [graphType, setGraphType] = useState("directed");
   const [outputFormat, setOutputFormat] = useState("representative");
+  const [outBatchSize, setOutBatchSize] = useState("3");
 
   const [isMining, setIsMining] = useState(false);
   const [miningResult, setMiningResult] = useState<{
@@ -170,6 +171,7 @@ export default function Mine() {
       formData.append("sample_method", sampleMethod);
       formData.append("graph_type", graphType);
       formData.append("graph_output_format", outputFormat);
+      formData.append("out_batch_size", outBatchSize);
 
       // Call the Integration Service API with FormData
       const response = await integrationAPI.post("/api/mine-patterns", formData);
@@ -194,21 +196,16 @@ export default function Mine() {
       });
     } finally {
       setIsMining(false);
-      // Stop polling
-      if (pollInterval) {
-        clearInterval(pollInterval);
-        setPollInterval(null);
-      }
     }
   };
 
-  //Only render time-dependent content on the client
+  // Only render time-dependent content on the client
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // WebSocket for progress updates
+  // WebSocket for real-time progress updates with polling fallback
   useEffect(() => {
     let socket: WebSocket | null = null;
     let fallbackInterval: NodeJS.Timeout | null = null;
@@ -218,6 +215,19 @@ export default function Mine() {
       setMiningProgress(0);
       setMiningStatus("Connecting to miner...");
       setPhaseProgress({ embedding: 0, search: 0, saving: 0 });
+
+      const startPolling = () => {
+        if (fallbackInterval) return;
+        console.log("[WebSocket] Starting polling fallback");
+        fallbackInterval = setInterval(async () => {
+          try {
+            const res = await integrationAPI.get(`/api/mining-status/${jobId}`);
+            if (res.data) applyProgress(res.data);
+          } catch (e) {
+            console.warn("Polling failed", e);
+          }
+        }, 2000);
+      };
 
       try {
         // Construct WebSocket URL from integrationAPI baseURL
@@ -233,7 +243,6 @@ export default function Mine() {
         if (!wsUrl.includes("/api")) {
           wsUrl = wsUrl.replace(/\/$/, "") + "/api";
         }
-
         const finalUrl = `${wsUrl}/ws/mining-progress/${jobId}`;
         console.log(`[WebSocket] Connecting to: ${finalUrl}`);
 
@@ -248,15 +257,18 @@ export default function Mine() {
           try {
             const data = JSON.parse(event.data);
             applyProgress(data);
+            if (data.status === 'completed' || data.progress >= 100) {
+              console.log("[WebSocket] Mining completed");
+              if (socket) socket.close();
+            }
           } catch (err) {
-            console.error("[WebSocket] Failed to parse message:", err);
+            console.warn("[WebSocket] Failed to parse message:", err);
           }
         };
 
         socket.onerror = (error) => {
           console.error("[WebSocket] Error:", error);
           setMiningStatus("Connection error. Switching to polling...");
-          // Fallback to polling
           startPolling();
         };
 
@@ -270,19 +282,6 @@ export default function Mine() {
         console.error("[WebSocket] Initialization failed:", err);
         startPolling();
       }
-    }
-
-    function startPolling() {
-      if (fallbackInterval) return;
-      console.log("[WebSocket] Starting polling fallback");
-      fallbackInterval = setInterval(async () => {
-        try {
-          const res = await integrationAPI.get(`/api/mining-status/${jobId}`);
-          if (res.data) applyProgress(res.data);
-        } catch (e) {
-          console.warn("Polling failed", e);
-        }
-      }, 2000);
     }
 
     return () => {
@@ -488,6 +487,21 @@ export default function Mine() {
                           <SelectItem value="instance">Instances</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="out-batch-size">Output Batch Size (Top K)</Label>
+                      <Input
+                        id="out-batch-size"
+                        type="number"
+                        min={1}
+                        value={outBatchSize}
+                        onChange={(e) => setOutBatchSize(e.target.value)}
+                        placeholder="10"
+                      />
+                      <p className="text-[10px] text-muted-foreground">
+                        Number of top patterns to return/visualize per size category.
+                      </p>
                     </div>
                   </div>
                 </AccordionContent>
