@@ -135,20 +135,20 @@ export default function Mine() {
       setMiningResult(null);
       completedShownRef.current = false;
 
-      // Create FormData to send as body (required by FastAPI Form handling)
+      // Build form from current state so backend gets exactly what the user configured
       const formData = new FormData();
       formData.append("job_id", jobId);
-      formData.append("min_pattern_size", minPatternSize);
-      formData.append("max_pattern_size", maxPatternSize);
-      formData.append("min_neighborhood_size", minNeighborhoodSize);
-      formData.append("max_neighborhood_size", maxNeighborhoodSize);
-      formData.append("n_neighborhoods", nNeighborhoods);
-      formData.append("n_trials", nTrials);
-      formData.append("out_batch_size", outBatchSize);
-      formData.append("search_strategy", searchStrategy);
-      formData.append("sample_method", sampleMethod);
-      formData.append("graph_type", graphType);
-      formData.append("graph_output_format", outputFormat);
+      formData.append("min_pattern_size", String(minPatternSize).trim() || "3");
+      formData.append("max_pattern_size", String(maxPatternSize).trim() || "5");
+      formData.append("min_neighborhood_size", String(minNeighborhoodSize).trim() || "3");
+      formData.append("max_neighborhood_size", String(maxNeighborhoodSize).trim() || "5");
+      formData.append("n_neighborhoods", String(nNeighborhoods).trim() || "500");
+      formData.append("n_trials", String(nTrials).trim() || "100");
+      formData.append("out_batch_size", String(outBatchSize).trim() || "3");
+      formData.append("search_strategy", searchStrategy || "greedy");
+      formData.append("sample_method", sampleMethod || "tree");
+      formData.append("graph_type", graphType || "directed");
+      formData.append("graph_output_format", outputFormat || "representative");
 
       // Call the Integration Service API with FormData
       const response = await integrationAPI.post("/api/mine-patterns", formData);
@@ -461,6 +461,13 @@ export default function Mine() {
                           <SelectItem value="instance">Instances</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="md:col-span-2 p-3 rounded-lg bg-muted/50 border border-border/50 font-mono text-xs">
+                      <p className="font-semibold text-foreground/80 mb-1">Config that will be sent</p>
+                      <p className="text-muted-foreground">
+                        Pattern size: {minPatternSize || "3"}–{maxPatternSize || "5"} · Output size: {outBatchSize || "3"} per size · Format: {outputFormat === "instance" ? "Instances" : "Representative"} · Trials: {nTrials || "100"} · Neighborhoods: {nNeighborhoods || "500"}
+                      </p>
                     </div>
                   </div>
                 </AccordionContent>
